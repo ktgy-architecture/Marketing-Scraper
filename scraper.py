@@ -37,7 +37,11 @@ def fetch_page_data(url):
             time.sleep(2.5)
             browser.execute_script("window.scrollTo(0, document.body.scrollHeight)")
             time.sleep(5)
-            button = WebDriverWait(browser, 10).until(EC.element_to_be_clickable(browser.find_element(By.XPATH, "//*[contains(text(), 'VIEW MORE')]")))
+            button = (
+                WebDriverWait(browser, 10)
+                    .until(EC.element_to_be_clickable(
+                browser.find_element(By.XPATH, "//*[contains(text(), 'VIEW MORE')]")))
+            )
             button.click()
             click_count += 1
             print(f"[DEBUG]: Click {click_count}!")
