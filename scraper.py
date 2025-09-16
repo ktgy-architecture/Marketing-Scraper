@@ -7,6 +7,14 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from tqdm import tqdm
 
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
+
 BASE = "https://ktgy.com"
 
 HEADERS = {
@@ -15,31 +23,46 @@ HEADERS = {
 
 session = requests.Session()
 session.headers.update(HEADERS)
+options = Options()
+# options.add_argument("--headless")
+options.add_argument('–-window-size=1920,1080')
+browser = webdriver.Chrome(service=ChromeService(executable_path=r"./chromedriver.exe"), options=options)
+
+
+def fetch_page_data(url):
+    browser.get(url)
+    click_count = 0
+    while True:
+        try:
+            time.sleep(2.5)
+            browser.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+            time.sleep(5)
+            button = WebDriverWait(browser, 10).until(EC.element_to_be_clickable(browser.find_element(By.XPATH, "//*[contains(text(), 'VIEW MORE')]")))
+            button.click()
+            click_count += 1
+            print(f"[DEBUG]: Click {click_count}!")
+        except NoSuchElementException:
+            print("[DEBUG]: No more clicking.")
+            break
+        except Exception as e:
+            print(e)
+            break
+    return browser.page_source
 
 
 def discover_project_urls() -> list[str]:
     urls = []
-    page = 1
-    count_last = 0
-    while True:
-        print(f"Fetching page {page}")
-        api = f"{BASE}/all-work/?page-num={page}&view_type=list"
-        r = session.get(api, timeout=30)
-        print(f"Got status code {r.status_code} for page {page}")
+    api = f"{BASE}/all-work/?view_type=list"
+    print(f"Fetching page {api}")
+    data = fetch_page_data(api)
 
-        data = r.text
-        soup = BeautifulSoup(data, "html.parser")
-        for a in soup.select("div.people_filter__person"):
-            href = a.select("a")[0].get("href")
-            if href and href.startswith(f"{BASE}/Work/"):
-                urls.append(urljoin(BASE, href))
-        print(f"Found {len(urls)} URLS: {urls[-5:]}")
-        page += 1
-
-        if count_last == len(urls):
-            break
-        count_last = len(urls)
-        time.sleep(0.25)
+    soup = BeautifulSoup(data, "html.parser")
+    for a in soup.select("div.people_filter__person"):
+        href = a.select("a")[0].get("href")
+        matcher = "https:/Work/"
+        if href and href.startswith(matcher):
+            urls.append(urljoin(BASE, href))
+    print(f"Found {len(urls)} URLS: {urls[-5:]}, unique-count: {len(set(urls))}")
     return sorted(set(urls))
 
 
